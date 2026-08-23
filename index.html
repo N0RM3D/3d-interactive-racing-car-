@@ -232,12 +232,14 @@
         try {
             await startMobileCamera();
             statusTxt.innerText = "Optimizing Performance...";
+            statusDesc.innerText = "Configuring local GPU settings on your device.";
+            
             await tf.ready();
             handTrackerModel = await handpose.load();
             
             loader.style.display = "none";
             statusTxt.innerText = "Ready To Play!";
-            statusDesc.innerText = "Prop your phone up. Step back slightly so your hands show clearly.";
+            statusDesc.innerText = "Place phone on a stand. Step back so your face and hands fit inside the frame.";
             btnStart.style.display = "block";
             
             btnStart.addEventListener('click', () => {
@@ -262,14 +264,20 @@
                 
                 if (handsDetected.length >= 1) {
                     const landmarks = handsDetected[0].landmarks;
+                    
+                    // Core point values to track wrist tilting geometry
                     const wrist = landmarks[0];
                     const middleFingerBase = landmarks[9];
                     
                     const dx = middleFingerBase[0] - wrist[0];
                     const dy = middleFingerBase[1] - wrist[1];
+                    
+                    // Math angle formula for stable wrist steering tilt calibration
                     let angle = Math.atan2(dx, -dy);
                     
+                    // Deadzone to prevent jittery center shaking
                     if (Math.abs(angle) < 0.08) angle = 0;
+
                     visualWheelRotation = angle * 1.5; 
                     targetCarX = -angle * 320; 
 
@@ -284,6 +292,7 @@
                         steerLabel.style.color = "#ffffff";
                     }
                 } else {
+                    // Smooth wheel return to center when hands are dropped
                     visualWheelRotation += (0 - visualWheelRotation) * 0.1;
                     targetCarX += (0 - targetCarX) * 0.1;
                 }
@@ -297,14 +306,14 @@
         ctx.save();
         ctx.translate(x, y);
 
-        // Ground Shadow
+        // Ground Neon Shadow Glow
         ctx.fillStyle = 'rgba(0, 255, 204, 0.25)';
         ctx.shadowColor = '#00ffcc';
         ctx.shadowBlur = 15;
         ctx.fillRect(-width/2 - 10, height - 5, width + 20, 15);
         ctx.shadowBlur = 0;
 
-        // Car Body
+        // Cyber Body
         ctx.fillStyle = '#ffcc00';
         ctx.shadowColor = '#ffcc00';
         ctx.shadowBlur = 20;
