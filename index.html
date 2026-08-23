@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>1:1 Neon Steering Match Racer</title>
+    <title>Fixed Dashboard Steering Match Racer</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script>
     <style>
@@ -11,21 +11,31 @@
         body { margin: 0; background: #070714; font-family: -apple-system, sans-serif; overflow: hidden; color: #fff; }
         #canvas3d { position: absolute; width: 100%; height: 100%; z-index: 1; }
         
-        /* HUD Layout */
-        #hud { position: absolute; top: 15px; left: 0; width: 100%; z-index: 10; display: flex; justify-content: space-between; padding: 0 20px; pointer-events: none; }
-        .hud-card { background: rgba(10, 10, 30, 0.85); padding: 8px 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(5px); text-align: center; }
+        /* HUD Top Row */
+        #hud { position: absolute; top: 15px; left: 20px; z-index: 10; display: flex; gap: 15px; flex-direction: column; pointer-events: none; }
+        .hud-card { background: rgba(10, 10, 30, 0.85); padding: 12px 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(5px); text-align: center; }
         .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #8a8ab0; margin-bottom: 2px; }
         .value { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
         #speedVal { color: #ffcc00; text-shadow: 0 0 10px rgba(255,204,0,0.4); }
         #distanceVal { color: #00ffcc; }
+        #steerLabel { color: #ffffff; font-size: 12px; }
         
-        /* Selfie View and Overlaid Skeleton Setup */
+        /* Steering Wheel Display */
+        #steering-container { background: rgba(10, 10, 30, 0.85); padding: 15px; border-radius: 12px; border: 1px solid rgba(0, 255, 204, 0.3); backdrop-filter: blur(5px); margin-top: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        #steering-wheel-canvas { width: 100px; height: 100px; }
+        
+        /* Hand Info Display */
+        #hand-info { margin-top: 8px; font-size: 11px; color: #8a8ab0; text-align: center; }
+        #hand-status { color: #00ffcc; font-weight: bold; }
+        
+        /* Camera Box in Bottom Right */
         #cam-container { position: absolute; bottom: 20px; right: 20px; width: 120px; height: 90px; border-radius: 16px; overflow: hidden; border: 2px solid #3b3b5c; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 10; background: #000; }
         #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); position: absolute; top:0; left:0; }
         #overlay-canvas { width: 100%; height: 100%; position: absolute; top:0; left:0; z-index: 11; transform: scaleX(-1); }
         
-        /* Input Pads */
-        #controls { position: absolute; bottom: 20px; left: 20px; z-index: 10; display: flex; gap: 15px; }
+        /* Bottom Left Driving Buttons */
+        #controls { position: absolute; bottom: 20px; left: 20px; z-index: 10; display: flex; gap: 15px; flex-direction: column; }
+        .control-row { display: flex; gap: 15px; }
         .btn { width: 70px; height: 70px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); font-weight: bold; font-size: 12px; display: flex; align-items: center; justify-content: center; color: #fff; background: rgba(15, 15, 35, 0.8); backdrop-filter: blur(5px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; pointer-events: auto; }
         .btn:active { transform: scale(0.92); }
         #btn-gas { border-color: #00ffcc; text-shadow: 0 0 5px #00ffcc; }
@@ -33,11 +43,11 @@
         #btn-brake { border-color: #ff3366; text-shadow: 0 0 5px #ff3366; }
         #btn-brake.active { background: rgba(255, 51, 102, 0.3); }
 
-        /* Loader */
+        /* Loader Screen Overlay */
         #status-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(7,7,20,0.95); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; transition: opacity 0.5s ease; }
         .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-top-color: #ffcc00; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        #btn-start { display: none; margin-top: 20px; background: #ffcc00; color: #000; border: none; padding: 14px 35px; font-size: 16px; font-weight: bold; border-radius: 30px; box-shadow: 0 5px 15px rgba(255,204,0,0.4); cursor: pointer; }
+        #btn-start { display: none; margin-top: 20px; background: #ffcc00; color: #000; border: none; padding: 14px 35px; font-size: 16px; font-weight: bold; border-radius: 30px; cursor: pointer; box-shadow: 0 5px 15px rgba(255,204,0,0.4); }
         #btn-start:hover { background: #ffdd33; transform: scale(1.05); }
         
         #loading-progress { display: none; margin-top: 20px; width: 200px; }
@@ -51,7 +61,7 @@
 <div id="status-overlay">
     <div class="spinner" id="loader"></div>
     <h2 id="status-txt">Initializing Feedback Matrix...</h2>
-    <p style="color: #8a8ab0; font-size: 14px; max-width: 280px; margin: 8px 0 0 0;" id="status-desc">Linking neon hand skeleton pipelines and wheel transforms.</p>
+    <p style="color: #8a8ab0; font-size: 14px; max-width: 280px; margin: 8px 0 0 0;" id="status-desc">Moving steering wheel to the left console bay.</p>
     <div id="loading-progress">
         <div class="progress-bar">
             <div class="progress-fill" id="progress-fill"></div>
@@ -72,13 +82,24 @@
     </div>
     <div class="hud-card">
         <div class="label">Input Tracking</div>
-        <div class="value" id="steerLabel" style="font-size: 14px; margin-top: 5px; color: #00ffcc;">CENTER</div>
+        <div class="value" id="steerLabel">CENTER</div>
+    </div>
+    
+    <div id="steering-container">
+        <div style="text-align: center; font-size: 11px; color: #8a8ab0; margin-bottom: 8px;">STEERING WHEEL</div>
+        <canvas id="steering-wheel-canvas"></canvas>
+        <div id="hand-info">
+            <div>Hand: <span id="hand-status">Not Detected</span></div>
+            <div id="angle-display" style="color: #ff3366; margin-top: 4px;">Angle: 0°</div>
+        </div>
     </div>
 </div>
 
 <div id="controls">
-    <div class="btn" id="btn-brake">🛑<br>BRAKE</div>
-    <div class="btn" id="btn-gas">⚡<br>GAS</div>
+    <div class="control-row">
+        <div class="btn" id="btn-brake">🛑<br>BRAKE</div>
+        <div class="btn" id="btn-gas">⚡<br>GAS</div>
+    </div>
 </div>
 
 <div id="cam-container">
@@ -138,6 +159,8 @@
     const video = document.getElementById('webcam');
     const overlayCanvas = document.getElementById('overlay-canvas');
     const oCtx = overlayCanvas.getContext('2d');
+    const steeringWheelCanvas = document.getElementById('steering-wheel-canvas');
+    const steeringCtx = steeringWheelCanvas.getContext('2d');
     
     const overlay = document.getElementById('status-overlay');
     const statusTxt = document.getElementById('status-txt');
@@ -152,6 +175,8 @@
     const progressBar = document.getElementById('progress-fill');
     const progressText = document.getElementById('progress-text');
     const loadingProgress = document.getElementById('loading-progress');
+    const handStatus = document.getElementById('hand-status');
+    const angleDisplay = document.getElementById('angle-display');
 
     const MOBILE_FRAME_SKIP = 2; 
     let frameCount = 0;
@@ -166,8 +191,7 @@
     let handTrackerModel = null;
     let isGameRunning = false;
     let isGamePaused = false;
-    let modelsLoading = false;
-    let modelsReady = false;
+    let currentSteeringAngle = 0;
 
     let isPressingGas = false;
     let isPressingBrake = false;
@@ -188,6 +212,54 @@
     btnBrake.addEventListener('touchend', (e) => { e.preventDefault(); isPressingBrake = false; btnBrake.classList.remove('active'); });
     btnBrake.addEventListener('mousedown', () => { if (!isGamePaused) { isPressingBrake = true; btnBrake.classList.add('active'); } });
     btnBrake.addEventListener('mouseup', () => { isPressingBrake = false; btnBrake.classList.remove('active'); });
+
+    function drawSteeringWheel(angle) {
+        const size = steeringWheelCanvas.width;
+        const centerX = size / 2;
+        const centerY = size / 2;
+        const radius = size / 2.5;
+
+        steeringCtx.clearRect(0, 0, size, size);
+
+        // Outer ring
+        steeringCtx.strokeStyle = '#00ffcc';
+        steeringCtx.lineWidth = 3;
+        steeringCtx.shadowColor = '#00ffcc';
+        steeringCtx.shadowBlur = 10;
+        steeringCtx.beginPath();
+        steeringCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        steeringCtx.stroke();
+        steeringCtx.shadowBlur = 0;
+
+        // Inner circle
+        steeringCtx.fillStyle = 'rgba(0, 255, 204, 0.1)';
+        steeringCtx.beginPath();
+        steeringCtx.arc(centerX, centerY, radius * 0.6, 0, Math.PI * 2);
+        steeringCtx.fill();
+
+        // Steering indicator line
+        steeringCtx.save();
+        steeringCtx.translate(centerX, centerY);
+        steeringCtx.rotate(angle);
+        
+        steeringCtx.strokeStyle = '#ff3366';
+        steeringCtx.lineWidth = 4;
+        steeringCtx.shadowColor = '#ff3366';
+        steeringCtx.shadowBlur = 8;
+        steeringCtx.beginPath();
+        steeringCtx.moveTo(0, -radius * 0.7);
+        steeringCtx.lineTo(0, radius * 0.7);
+        steeringCtx.stroke();
+        steeringCtx.shadowBlur = 0;
+        
+        steeringCtx.restore();
+
+        // Center dot
+        steeringCtx.fillStyle = '#ffcc00';
+        steeringCtx.beginPath();
+        steeringCtx.arc(centerX, centerY, 5, 0, Math.PI * 2);
+        steeringCtx.fill();
+    }
 
     async function startMobileCamera() {
         try {
@@ -214,7 +286,6 @@
     }
 
     async function loadHandposeModel() {
-        // Check if cached
         const cached = await getCachedModel('handpose');
         if (cached) {
             statusTxt.innerText = "Loading from Cache...";
@@ -223,15 +294,11 @@
             return cached;
         }
         
-        // Load fresh and cache
-        modelsLoading = true;
         loadingProgress.style.display = 'block';
         statusTxt.innerText = "Downloading Models...";
         
         const model = await handpose.load();
-        modelsReady = true;
         
-        // Cache it
         await cacheModel('handpose', model);
         
         progressBar.style.width = '100%';
@@ -252,7 +319,7 @@
             
             loader.style.display = "none";
             statusTxt.innerText = "Ready To Race!";
-            statusDesc.innerText = "Watch the neon lines match your hand movement perfectly.";
+            statusDesc.innerText = "Steering wheel is fixed below speed. Watch the wheel match your hand tilt.";
             btnStart.style.display = "block";
             
             btnStart.addEventListener('click', () => {
@@ -268,7 +335,6 @@
         } catch (e) { 
             console.error(e);
             statusTxt.innerText = "Error Loading";
-            statusDesc.innerText = "Please refresh the page";
         }
     }
 
@@ -282,16 +348,18 @@
                 oCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
                 if (handsDetected.length >= 1) {
+                    handStatus.textContent = "Detected ✓";
+                    handStatus.style.color = "#00ffcc";
+                    
                     const hand = handsDetected[0];
                     const landmarks = hand.landmarks;
                     
-                    // NEON SKELETON LAYER
                     const wrist = landmarks[0];
                     const indexBase = landmarks[5];
                     const pinkyBase = landmarks[17];
                     const middleTip = landmarks[12];
                     
-                    // Draw neon palm base
+                    // Draw neon skeleton
                     oCtx.strokeStyle = '#00ffcc';
                     oCtx.lineWidth = 2;
                     oCtx.shadowColor = '#00ffcc';
@@ -304,7 +372,6 @@
                     oCtx.closePath();
                     oCtx.stroke();
                     
-                    // Draw core directional bone
                     oCtx.strokeStyle = '#ff3366';
                     oCtx.shadowColor = '#ff3366';
                     oCtx.beginPath();
@@ -313,29 +380,37 @@
                     oCtx.stroke();
                     oCtx.shadowBlur = 0;
 
-                    // Geometric steering angle
                     const dx = middleTip[0] - wrist[0];
                     const dy = middleTip[1] - wrist[1];
                     let angle = Math.atan2(dx, -dy);
                     
                     if (Math.abs(angle) < 0.08) angle = 0;
+                    
+                    currentSteeringAngle = angle;
                     visualWheelRotation = angle * 1.5;
                     targetCarX = -angle * 320;
+                    
+                    angleDisplay.textContent = `Angle: ${(angle * 180 / Math.PI).toFixed(1)}°`;
 
                     if (targetCarX > 30) {
-                        steerLabel.innerText = "◀ LEFT";
+                        steerLabel.textContent = "◀ STEERING LEFT";
                         steerLabel.style.color = "#ff3366";
                     } else if (targetCarX < -30) {
-                        steerLabel.innerText = "RIGHT ▶";
+                        steerLabel.textContent = "STEERING RIGHT ▶";
                         steerLabel.style.color = "#00ffcc";
                     } else {
-                        steerLabel.innerText = "● CENTER ●";
+                        steerLabel.textContent = "● CENTER ●";
                         steerLabel.style.color = "#ffffff";
                     }
                 } else {
+                    handStatus.textContent = "Not Detected";
+                    handStatus.style.color = "#8a8ab0";
                     visualWheelRotation += (0 - visualWheelRotation) * 0.1;
                     targetCarX += (0 - targetCarX) * 0.1;
+                    currentSteeringAngle = 0;
                 }
+                
+                drawSteeringWheel(currentSteeringAngle);
             } catch (err) {}
         }
         requestAnimationFrame(processWebcamLoop);
