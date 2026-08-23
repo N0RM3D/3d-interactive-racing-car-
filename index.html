@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fixed Dashboard Steering Match Racer</title>
+    <title>1:1 Neon Steering Match Racer</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script>
     <style>
@@ -11,39 +11,75 @@
         body { margin: 0; background: #070714; font-family: -apple-system, sans-serif; overflow: hidden; color: #fff; }
         #canvas3d { position: absolute; width: 100%; height: 100%; z-index: 1; }
         
-        /* HUD Top Row */
-        #hud { position: absolute; top: 15px; left: 20px; z-index: 10; display: flex; gap: 15px; flex-direction: column; pointer-events: none; }
-        .hud-card { background: rgba(10, 10, 30, 0.85); padding: 12px 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(5px); text-align: center; }
-        .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #8a8ab0; margin-bottom: 2px; }
-        .value { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
-        #speedVal { color: #ffcc00; text-shadow: 0 0 10px rgba(255,204,0,0.4); }
-        #distanceVal { color: #00ffcc; }
-        #steerLabel { color: #ffffff; font-size: 12px; }
+        /* LEFT PANEL - HUD */
+        #hud-left { position: absolute; left: 20px; top: 20px; z-index: 10; display: flex; flex-direction: column; gap: 12px; }
         
-        /* Steering Wheel Display */
-        #steering-container { background: rgba(10, 10, 30, 0.85); padding: 15px; border-radius: 12px; border: 1px solid rgba(0, 255, 204, 0.3); backdrop-filter: blur(5px); margin-top: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
-        #steering-wheel-canvas { width: 100px; height: 100px; }
+        .hud-card { background: rgba(10, 10, 30, 0.9); padding: 15px 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(8px); text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
         
-        /* Hand Info Display */
-        #hand-info { margin-top: 8px; font-size: 11px; color: #8a8ab0; text-align: center; }
-        #hand-status { color: #00ffcc; font-weight: bold; }
+        .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #8a8ab0; margin-bottom: 4px; }
+        .value { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; }
         
-        /* Camera Box in Bottom Right */
-        #cam-container { position: absolute; bottom: 20px; right: 20px; width: 120px; height: 90px; border-radius: 16px; overflow: hidden; border: 2px solid #3b3b5c; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 10; background: #000; }
+        #speedVal { color: #ffcc00; text-shadow: 0 0 15px rgba(255,204,0,0.5); }
+        #distanceVal { color: #00ffcc; text-shadow: 0 0 15px rgba(0,255,204,0.5); }
+        #steerLabel { color: #ffffff; font-size: 14px; }
+        
+        /* STEERING WHEEL */
+        #steering-container { background: rgba(10, 10, 30, 0.9); padding: 15px; border-radius: 12px; border: 2px solid rgba(0, 255, 204, 0.4); backdrop-filter: blur(8px); box-shadow: 0 5px 20px rgba(0,0,0,0.3); width: 140px; }
+        
+        #steering-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #8a8ab0; text-align: center; margin-bottom: 8px; font-weight: bold; }
+        
+        #steering-wheel-canvas { width: 110px; height: 110px; display: block; margin: 0 auto; }
+        
+        #hand-info { margin-top: 8px; font-size: 10px; text-align: center; }
+        #hand-status { color: #00ffcc; font-weight: bold; display: block; }
+        #angle-display { color: #ff3366; font-size: 10px; margin-top: 4px; }
+        
+        /* TOP CENTER - PAUSE & STEER CONTROL */
+        #hud-top { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10; }
+        
+        #btn-pause { width: 80px; height: 80px; border-radius: 50%; border: 3px solid #ffcc00; background: rgba(255, 204, 0, 0.15); box-shadow: 0 0 20px rgba(255, 204, 0, 0.5); font-size: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #ffcc00; text-shadow: 0 0 10px #ffcc00; backdrop-filter: blur(8px); }
+        #btn-pause:active { transform: scale(0.95); }
+        
+        .steer-control-box { background: rgba(10, 10, 30, 0.9); padding: 12px 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(8px); text-align: center; margin-top: 12px; }
+        .steer-control-box .label { margin-bottom: 4px; }
+        .steer-control-box .value { font-size: 16px; color: #00ffcc; }
+        
+        /* RIGHT PANEL - DISTANCE */
+        #hud-right { position: absolute; right: 20px; top: 20px; z-index: 10; }
+        
+        /* BOTTOM LEFT - CONTROLS */
+        #controls { position: absolute; bottom: 20px; left: 20px; z-index: 10; display: flex; gap: 15px; }
+        .btn { width: 70px; height: 70px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); font-weight: bold; font-size: 12px; display: flex; align-items: center; justify-content: center; color: #fff; background: rgba(15, 15, 35, 0.85); backdrop-filter: blur(8px); box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; pointer-events: auto; transition: all 0.2s; }
+        .btn:active { transform: scale(0.92); }
+        
+        #btn-brake { border-color: #ff3366; text-shadow: 0 0 5px #ff3366; }
+        #btn-brake.active { background: rgba(255, 51, 102, 0.3); box-shadow: 0 0 20px rgba(255, 51, 102, 0.5); }
+        
+        #btn-gas { border-color: #00ffcc; text-shadow: 0 0 5px #00ffcc; }
+        #btn-gas.active { background: rgba(0, 255, 204, 0.3); box-shadow: 0 0 20px rgba(0, 255, 204, 0.5); }
+        
+        /* BOTTOM RIGHT - CAMERA */
+        #cam-container { position: absolute; bottom: 20px; right: 20px; width: 130px; height: 100px; border-radius: 16px; overflow: hidden; border: 2px solid #3b3b5c; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 10; background: #000; }
         #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); position: absolute; top:0; left:0; }
         #overlay-canvas { width: 100%; height: 100%; position: absolute; top:0; left:0; z-index: 11; transform: scaleX(-1); }
         
-        /* Bottom Left Driving Buttons */
-        #controls { position: absolute; bottom: 20px; left: 20px; z-index: 10; display: flex; gap: 15px; flex-direction: column; }
-        .control-row { display: flex; gap: 15px; }
-        .btn { width: 70px; height: 70px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); font-weight: bold; font-size: 12px; display: flex; align-items: center; justify-content: center; color: #fff; background: rgba(15, 15, 35, 0.8); backdrop-filter: blur(5px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; pointer-events: auto; }
-        .btn:active { transform: scale(0.92); }
-        #btn-gas { border-color: #00ffcc; text-shadow: 0 0 5px #00ffcc; }
-        #btn-gas.active { background: rgba(0, 255, 204, 0.3); }
-        #btn-brake { border-color: #ff3366; text-shadow: 0 0 5px #ff3366; }
-        #btn-brake.active { background: rgba(255, 51, 102, 0.3); }
-
-        /* Loader Screen Overlay */
+        /* PAUSE MENU */
+        #pause-menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 50; display: none; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .pause-content { background: rgba(10, 10, 30, 0.95); padding: 40px 30px; border-radius: 20px; border: 2px solid rgba(0, 255, 204, 0.4); text-align: center; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); }
+        .pause-content h2 { font-size: 2rem; margin-bottom: 30px; color: #00ffcc; text-shadow: 0 0 15px rgba(0, 255, 204, 0.5); }
+        .pause-stats { margin: 20px 0; font-size: 1.1rem; color: #b0b0b0; }
+        .pause-stats p { margin: 8px 0; }
+        .pause-stat-label { color: #8a8ab0; font-size: 0.9rem; }
+        .pause-stat-value { color: #00ffcc; font-weight: bold; font-size: 1.3rem; }
+        .pause-buttons { display: flex; gap: 15px; margin-top: 30px; justify-content: center; }
+        .pause-btn { padding: 15px 30px; border: 2px solid rgba(255,255,255,0.2); border-radius: 15px; font-size: 1rem; font-weight: bold; background: rgba(15, 15, 35, 0.8); color: #fff; cursor: pointer; transition: all 0.3s ease; }
+        .pause-btn:hover { transform: scale(1.05); }
+        #btn-resume { border-color: #00ffcc; color: #00ffcc; }
+        #btn-resume:hover { background: rgba(0, 255, 204, 0.2); }
+        #btn-quit { border-color: #ff3366; color: #ff3366; }
+        #btn-quit:hover { background: rgba(255, 51, 102, 0.2); }
+        
+        /* LOADER */
         #status-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(7,7,20,0.95); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; transition: opacity 0.5s ease; }
         .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-top-color: #ffcc00; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -61,7 +97,7 @@
 <div id="status-overlay">
     <div class="spinner" id="loader"></div>
     <h2 id="status-txt">Initializing Feedback Matrix...</h2>
-    <p style="color: #8a8ab0; font-size: 14px; max-width: 280px; margin: 8px 0 0 0;" id="status-desc">Moving steering wheel to the left console bay.</p>
+    <p style="color: #8a8ab0; font-size: 14px; max-width: 280px; margin: 8px 0 0 0;" id="status-desc">Loading AI vision engine and steering systems.</p>
     <div id="loading-progress">
         <div class="progress-bar">
             <div class="progress-fill" id="progress-fill"></div>
@@ -71,37 +107,65 @@
     <button id="btn-start">START RACING</button>
 </div>
 
-<div id="hud">
-    <div class="hud-card">
-        <div class="label">Speed</div>
-        <div class="value"><span id="speedVal">0</span> KM/H</div>
-    </div>
-    <div class="hud-card">
-        <div class="label">Distance</div>
-        <div class="value" id="distanceVal">0 m</div>
-    </div>
-    <div class="hud-card">
-        <div class="label">Input Tracking</div>
-        <div class="value" id="steerLabel">CENTER</div>
-    </div>
-    
-    <div id="steering-container">
-        <div style="text-align: center; font-size: 11px; color: #8a8ab0; margin-bottom: 8px;">STEERING WHEEL</div>
-        <canvas id="steering-wheel-canvas"></canvas>
-        <div id="hand-info">
-            <div>Hand: <span id="hand-status">Not Detected</span></div>
-            <div id="angle-display" style="color: #ff3366; margin-top: 4px;">Angle: 0°</div>
+<div id="pause-menu">
+    <div class="pause-content">
+        <h2>⏸️ PAUSED</h2>
+        <div class="pause-stats">
+            <p><span class="pause-stat-label">Current Speed:</span></p>
+            <p class="pause-stat-value"><span id="pause-speed">0</span> KM/H</p>
+            <p style="margin-top: 15px;"><span class="pause-stat-label">Distance Traveled:</span></p>
+            <p class="pause-stat-value"><span id="pause-distance">0</span> m</p>
+        </div>
+        <div class="pause-buttons">
+            <button class="pause-btn" id="btn-resume">▶ RESUME</button>
+            <button class="pause-btn" id="btn-quit">⏹️ QUIT</button>
         </div>
     </div>
 </div>
 
-<div id="controls">
-    <div class="control-row">
-        <div class="btn" id="btn-brake">🛑<br>BRAKE</div>
-        <div class="btn" id="btn-gas">⚡<br>GAS</div>
+<!-- LEFT PANEL -->
+<div id="hud-left">
+    <div class="hud-card">
+        <div class="label">Speed</div>
+        <div class="value"><span id="speedVal">0</span> KM/H</div>
+    </div>
+    
+    <div class="hud-card">
+        <div class="label">Distance</div>
+        <div class="value"><span id="distanceVal">0</span> m</div>
+    </div>
+    
+    <div id="steering-container">
+        <div id="steering-label">⚙️ STEERING</div>
+        <canvas id="steering-wheel-canvas"></canvas>
+        <div id="hand-info">
+            <span id="hand-status">Not Detected</span>
+            <div id="angle-display">Angle: 0°</div>
+        </div>
     </div>
 </div>
 
+<!-- TOP CENTER -->
+<div id="hud-top">
+    <div id="btn-pause">⏸️</div>
+    <div class="steer-control-box">
+        <div class="label">Input Tracking</div>
+        <div class="value" id="steerLabel">● CENTER ●</div>
+    </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div id="hud-right">
+    <!-- Reserved for future use -->
+</div>
+
+<!-- BOTTOM LEFT - CONTROLS -->
+<div id="controls">
+    <div class="btn" id="btn-brake">🛑<br>BRAKE</div>
+    <div class="btn" id="btn-gas">⚡<br>GAS</div>
+</div>
+
+<!-- BOTTOM RIGHT - CAMERA -->
 <div id="cam-container">
     <video id="webcam" autoplay playsinline muted></video>
     <canvas id="overlay-canvas"></canvas>
@@ -172,6 +236,12 @@
     const steerLabel = document.getElementById('steerLabel');
     const btnGas = document.getElementById('btn-gas');
     const btnBrake = document.getElementById('btn-brake');
+    const btnPause = document.getElementById('btn-pause');
+    const pauseMenu = document.getElementById('pause-menu');
+    const btnResume = document.getElementById('btn-resume');
+    const btnQuit = document.getElementById('btn-quit');
+    const pauseSpeed = document.getElementById('pause-speed');
+    const pauseDistance = document.getElementById('pause-distance');
     const progressBar = document.getElementById('progress-fill');
     const progressText = document.getElementById('progress-text');
     const loadingProgress = document.getElementById('loading-progress');
@@ -213,11 +283,41 @@
     btnBrake.addEventListener('mousedown', () => { if (!isGamePaused) { isPressingBrake = true; btnBrake.classList.add('active'); } });
     btnBrake.addEventListener('mouseup', () => { isPressingBrake = false; btnBrake.classList.remove('active'); });
 
+    btnPause.addEventListener('click', () => {
+        if (isGameRunning) {
+            isGamePaused = !isGamePaused;
+            if (isGamePaused) {
+                pauseMenu.style.display = 'flex';
+                pauseSpeed.textContent = Math.floor(currentSpeed);
+                pauseDistance.textContent = Math.floor(totalDistance);
+            } else {
+                pauseMenu.style.display = 'none';
+            }
+        }
+    });
+
+    btnResume.addEventListener('click', () => {
+        isGamePaused = false;
+        pauseMenu.style.display = 'none';
+    });
+
+    btnQuit.addEventListener('click', () => {
+        isGameRunning = false;
+        isGamePaused = false;
+        pauseMenu.style.display = 'none';
+        overlay.style.opacity = "1";
+        overlay.style.display = "flex";
+        loader.style.display = "none";
+        statusTxt.innerText = "Game Over!";
+        statusDesc.innerText = `You traveled ${Math.floor(totalDistance)}m. Click START RACING to play again.`;
+        btnStart.style.display = "block";
+    });
+
     function drawSteeringWheel(angle) {
         const size = steeringWheelCanvas.width;
         const centerX = size / 2;
         const centerY = size / 2;
-        const radius = size / 2.5;
+        const radius = size / 2.8;
 
         steeringCtx.clearRect(0, 0, size, size);
 
@@ -225,16 +325,16 @@
         steeringCtx.strokeStyle = '#00ffcc';
         steeringCtx.lineWidth = 3;
         steeringCtx.shadowColor = '#00ffcc';
-        steeringCtx.shadowBlur = 10;
+        steeringCtx.shadowBlur = 12;
         steeringCtx.beginPath();
         steeringCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         steeringCtx.stroke();
         steeringCtx.shadowBlur = 0;
 
         // Inner circle
-        steeringCtx.fillStyle = 'rgba(0, 255, 204, 0.1)';
+        steeringCtx.fillStyle = 'rgba(0, 255, 204, 0.08)';
         steeringCtx.beginPath();
-        steeringCtx.arc(centerX, centerY, radius * 0.6, 0, Math.PI * 2);
+        steeringCtx.arc(centerX, centerY, radius * 0.7, 0, Math.PI * 2);
         steeringCtx.fill();
 
         // Steering indicator line
@@ -245,10 +345,10 @@
         steeringCtx.strokeStyle = '#ff3366';
         steeringCtx.lineWidth = 4;
         steeringCtx.shadowColor = '#ff3366';
-        steeringCtx.shadowBlur = 8;
+        steeringCtx.shadowBlur = 10;
         steeringCtx.beginPath();
-        steeringCtx.moveTo(0, -radius * 0.7);
-        steeringCtx.lineTo(0, radius * 0.7);
+        steeringCtx.moveTo(0, -radius * 0.65);
+        steeringCtx.lineTo(0, radius * 0.65);
         steeringCtx.stroke();
         steeringCtx.shadowBlur = 0;
         
@@ -256,9 +356,12 @@
 
         // Center dot
         steeringCtx.fillStyle = '#ffcc00';
+        steeringCtx.shadowColor = '#ffcc00';
+        steeringCtx.shadowBlur = 8;
         steeringCtx.beginPath();
-        steeringCtx.arc(centerX, centerY, 5, 0, Math.PI * 2);
+        steeringCtx.arc(centerX, centerY, 6, 0, Math.PI * 2);
         steeringCtx.fill();
+        steeringCtx.shadowBlur = 0;
     }
 
     async function startMobileCamera() {
@@ -289,7 +392,7 @@
         const cached = await getCachedModel('handpose');
         if (cached) {
             statusTxt.innerText = "Loading from Cache...";
-            progressText.innerText = "Models restored from cache!";
+            progressText.innerText = "Models restored!";
             progressBar.style.width = '100%';
             return cached;
         }
@@ -298,11 +401,10 @@
         statusTxt.innerText = "Downloading Models...";
         
         const model = await handpose.load();
-        
         await cacheModel('handpose', model);
         
         progressBar.style.width = '100%';
-        progressText.innerText = "Models cached for faster loading next time!";
+        progressText.innerText = "Models cached!";
         
         return model;
     }
@@ -319,7 +421,7 @@
             
             loader.style.display = "none";
             statusTxt.innerText = "Ready To Race!";
-            statusDesc.innerText = "Steering wheel is fixed below speed. Watch the wheel match your hand tilt.";
+            statusDesc.innerText = "Steering wheel locked on left. Road walls visible. Let's race!";
             btnStart.style.display = "block";
             
             btnStart.addEventListener('click', () => {
@@ -393,10 +495,10 @@
                     angleDisplay.textContent = `Angle: ${(angle * 180 / Math.PI).toFixed(1)}°`;
 
                     if (targetCarX > 30) {
-                        steerLabel.textContent = "◀ STEERING LEFT";
+                        steerLabel.textContent = "◀ LEFT";
                         steerLabel.style.color = "#ff3366";
                     } else if (targetCarX < -30) {
-                        steerLabel.textContent = "STEERING RIGHT ▶";
+                        steerLabel.textContent = "RIGHT ▶";
                         steerLabel.style.color = "#00ffcc";
                     } else {
                         steerLabel.textContent = "● CENTER ●";
@@ -486,10 +588,10 @@
             totalDistance += currentSpeed * 0.04;
             
             speedVal.innerText = Math.floor(currentSpeed);
-            distanceVal.innerText = Math.floor(totalDistance) + ' m';
+            distanceVal.innerText = Math.floor(totalDistance);
         }
 
-        const segments = 22;
+        const segments = 25;
         for (let i = segments; i > 0; i--) {
             let z = i / segments;
             let nextZ = (i - 1) / segments;
@@ -509,6 +611,7 @@
             let centerX1 = w / 2 + curveOffset + (carX * projectionScale1);
             let centerX2 = w / 2 + nextCurveOffset + (carX * projectionScale2);
 
+            // Road fill
             if (Math.floor(roadDistance + i) % 2 === 0) {
                 ctx.fillStyle = 'rgba(25, 18, 56, 0.4)';
                 ctx.beginPath();
@@ -517,19 +620,29 @@
                 ctx.lineTo(centerX2 + roadWidth2, y2);
                 ctx.lineTo(centerX2 - roadWidth2, y2);
                 ctx.fill();
-
-                ctx.strokeStyle = '#00ffcc';
-                ctx.lineWidth = 3 * projectionScale1 + 0.5;
-                ctx.beginPath(); 
-                ctx.moveTo(centerX1 - roadWidth1, y1); 
-                ctx.lineTo(centerX2 - roadWidth2, y2); 
-                ctx.stroke();
-                ctx.strokeStyle = '#ff3366';
-                ctx.beginPath(); 
-                ctx.moveTo(centerX1 + roadWidth1, y1); 
-                ctx.lineTo(centerX2 + roadWidth2, y2); 
-                ctx.stroke();
             }
+
+            // ROAD BOUNDARY WALLS
+            // Left wall (Cyan)
+            ctx.strokeStyle = '#00ffcc';
+            ctx.lineWidth = 4 * projectionScale1;
+            ctx.shadowColor = '#00ffcc';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.moveTo(centerX1 - roadWidth1, y1);
+            ctx.lineTo(centerX2 - roadWidth2, y2);
+            ctx.stroke();
+
+            // Right wall (Red)
+            ctx.strokeStyle = '#ff3366';
+            ctx.lineWidth = 4 * projectionScale1;
+            ctx.shadowColor = '#ff3366';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.moveTo(centerX1 + roadWidth1, y1);
+            ctx.lineTo(centerX2 + roadWidth2, y2);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
         }
 
         const carW = w * 0.24 > 110 ? 110 : w * 0.24;
