@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Upgraded Mobile Hand-Steering Racer</title>
+    <title>1:1 Neon Steering Match Racer</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script>
     <style>
@@ -11,18 +11,20 @@
         body { margin: 0; background: #070714; font-family: -apple-system, sans-serif; overflow: hidden; color: #fff; }
         #canvas3d { position: absolute; width: 100%; height: 100%; z-index: 1; }
         
-        /* HUD Style */
+        /* HUD Layout */
         #hud { position: absolute; top: 15px; left: 0; width: 100%; z-index: 10; display: flex; justify-content: space-between; padding: 0 20px; pointer-events: none; }
         .hud-card { background: rgba(10, 10, 30, 0.85); padding: 8px 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(5px); text-align: center; }
         .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #8a8ab0; margin-bottom: 2px; }
         .value { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
         #speedVal { color: #ffcc00; text-shadow: 0 0 10px rgba(255,204,0,0.4); }
+        #distanceVal { color: #00ffcc; }
         
-        /* Camera Window */
-        #cam-container { position: absolute; bottom: 20px; right: 20px; width: 90px; height: 120px; border-radius: 16px; overflow: hidden; border: 2px solid #3b3b5c; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 10; background: #000; }
-        #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        /* Selfie View and Overlaid Skeleton Setup */
+        #cam-container { position: absolute; bottom: 20px; right: 20px; width: 120px; height: 90px; border-radius: 16px; overflow: hidden; border: 2px solid #3b3b5c; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 10; background: #000; }
+        #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); position: absolute; top:0; left:0; }
+        #overlay-canvas { width: 100%; height: 100%; position: absolute; top:0; left:0; z-index: 11; transform: scaleX(-1); }
         
-        /* Interactive Speed Control Buttons */
+        /* Input Pads */
         #controls { position: absolute; bottom: 20px; left: 20px; z-index: 10; display: flex; gap: 15px; }
         .btn { width: 70px; height: 70px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); font-weight: bold; font-size: 12px; display: flex; align-items: center; justify-content: center; color: #fff; background: rgba(15, 15, 35, 0.8); backdrop-filter: blur(5px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; pointer-events: auto; }
         .btn:active { transform: scale(0.92); }
@@ -31,62 +33,32 @@
         #btn-brake { border-color: #ff3366; text-shadow: 0 0 5px #ff3366; }
         #btn-brake.active { background: rgba(255, 51, 102, 0.3); }
 
-        /* Pause Button */
-        #btn-pause { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; z-index: 10; pointer-events: auto; }
-        #btn-pause-icon { font-size: 28px; }
-
-        /* Score Display */
-        #score-display { position: absolute; top: 100px; right: 20px; background: rgba(10, 10, 30, 0.85); padding: 15px 20px; border-radius: 12px; border: 1px solid rgba(0, 255, 204, 0.3); z-index: 10; text-align: right; }
-        #score-display .score-label { font-size: 10px; color: #8a8ab0; margin-bottom: 5px; }
-        #score-display .score-value { font-size: 24px; color: #00ffcc; font-weight: bold; }
-
-        /* Pause Menu Overlay */
-        #pause-menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 50; display: none; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
-        .pause-content { background: rgba(10, 10, 30, 0.95); padding: 40px 30px; border-radius: 20px; border: 2px solid rgba(0, 255, 204, 0.4); text-align: center; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); }
-        .pause-content h2 { font-size: 2rem; margin-bottom: 30px; color: #00ffcc; text-shadow: 0 0 15px rgba(0, 255, 204, 0.5); }
-        .pause-stats { margin: 20px 0; font-size: 1.1rem; color: #b0b0b0; }
-        .pause-stats p { margin: 8px 0; }
-        .pause-stat-label { color: #8a8ab0; font-size: 0.9rem; }
-        .pause-stat-value { color: #00ffcc; font-weight: bold; font-size: 1.3rem; }
-        .pause-buttons { display: flex; gap: 15px; margin-top: 30px; justify-content: center; }
-        .pause-btn { padding: 15px 30px; border: 2px solid rgba(255,255,255,0.2); border-radius: 15px; font-size: 1rem; font-weight: bold; background: rgba(15, 15, 35, 0.8); color: #fff; cursor: pointer; transition: all 0.3s ease; }
-        .pause-btn:hover { transform: scale(1.05); }
-        #btn-resume { border-color: #00ffcc; color: #00ffcc; }
-        #btn-resume:hover { background: rgba(0, 255, 204, 0.2); }
-        #btn-quit { border-color: #ff3366; color: #ff3366; }
-        #btn-quit:hover { background: rgba(255, 51, 102, 0.2); }
-
-        /* Welcome Loading Screen */
+        /* Loader */
         #status-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(7,7,20,0.95); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; transition: opacity 0.5s ease; }
         .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-top-color: #ffcc00; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { to { transform: rotate(360deg); } }
         #btn-start { display: none; margin-top: 20px; background: #ffcc00; color: #000; border: none; padding: 14px 35px; font-size: 16px; font-weight: bold; border-radius: 30px; box-shadow: 0 5px 15px rgba(255,204,0,0.4); cursor: pointer; }
         #btn-start:hover { background: #ffdd33; transform: scale(1.05); }
+        
+        #loading-progress { display: none; margin-top: 20px; width: 200px; }
+        .progress-bar { height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #ffcc00; width: 0%; transition: width 0.3s ease; }
+        #progress-text { font-size: 12px; color: #8a8ab0; margin-top: 8px; }
     </style>
 </head>
 <body>
 
 <div id="status-overlay">
     <div class="spinner" id="loader"></div>
-    <h2 id="status-txt">Loading Vision Engine...</h2>
-    <p style="color: #8a8ab0; font-size: 14px; max-width: 280px; margin: 8px 0 0 0;" id="status-desc">Starting system graphics and tracking layers.</p>
-    <button id="btn-start">START RACING</button>
-</div>
-
-<div id="pause-menu">
-    <div class="pause-content">
-        <h2>⏸️ PAUSED</h2>
-        <div class="pause-stats">
-            <p><span class="pause-stat-label">Current Speed:</span></p>
-            <p class="pause-stat-value"><span id="pause-speed">0</span> KM/H</p>
-            <p style="margin-top: 15px;"><span class="pause-stat-label">Distance Traveled:</span></p>
-            <p class="pause-stat-value"><span id="pause-distance">0</span> m</p>
+    <h2 id="status-txt">Initializing Feedback Matrix...</h2>
+    <p style="color: #8a8ab0; font-size: 14px; max-width: 280px; margin: 8px 0 0 0;" id="status-desc">Linking neon hand skeleton pipelines and wheel transforms.</p>
+    <div id="loading-progress">
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
         </div>
-        <div class="pause-buttons">
-            <button class="pause-btn" id="btn-resume">▶ RESUME</button>
-            <button class="pause-btn" id="btn-quit">⏹️ QUIT</button>
-        </div>
+        <div id="progress-text">Ready to start...</div>
     </div>
+    <button id="btn-start">START RACING</button>
 </div>
 
 <div id="hud">
@@ -95,18 +67,13 @@
         <div class="value"><span id="speedVal">0</span> KM/H</div>
     </div>
     <div class="hud-card">
-        <div class="label">Steer Control</div>
+        <div class="label">Distance</div>
+        <div class="value" id="distanceVal">0 m</div>
+    </div>
+    <div class="hud-card">
+        <div class="label">Input Tracking</div>
         <div class="value" id="steerLabel" style="font-size: 14px; margin-top: 5px; color: #00ffcc;">CENTER</div>
     </div>
-</div>
-
-<div class="btn" id="btn-pause" style="border-color: #ffcc00; text-shadow: 0 0 5px #ffcc00;">
-    <div id="btn-pause-icon">⏸️</div>
-</div>
-
-<div id="score-display">
-    <div class="score-label">DISTANCE</div>
-    <div class="score-value" id="score-value">0 m</div>
 </div>
 
 <div id="controls">
@@ -116,47 +83,92 @@
 
 <div id="cam-container">
     <video id="webcam" autoplay playsinline muted></video>
+    <canvas id="overlay-canvas"></canvas>
 </div>
 
 <canvas id="canvas3d"></canvas>
 
 <script>
+    // IndexedDB for Model Caching
+    const DB_NAME = 'racingGameModels';
+    const STORE_NAME = 'models';
+    
+    let db = null;
+    
+    async function initDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, 1);
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                db = request.result;
+                resolve(db);
+            };
+            request.onupgradeneeded = (e) => {
+                const newDB = e.target.result;
+                if (!newDB.objectStoreNames.contains(STORE_NAME)) {
+                    newDB.createObjectStore(STORE_NAME);
+                }
+            };
+        });
+    }
+    
+    async function getCachedModel(key) {
+        if (!db) return null;
+        return new Promise((resolve) => {
+            const transaction = db.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.get(key);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => resolve(null);
+        });
+    }
+    
+    async function cacheModel(key, data) {
+        if (!db) return;
+        return new Promise((resolve) => {
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.put(data, key);
+            request.onsuccess = () => resolve();
+        });
+    }
+
     const canvas = document.getElementById('canvas3d');
     const ctx = canvas.getContext('2d');
     const video = document.getElementById('webcam');
+    const overlayCanvas = document.getElementById('overlay-canvas');
+    const oCtx = overlayCanvas.getContext('2d');
+    
     const overlay = document.getElementById('status-overlay');
     const statusTxt = document.getElementById('status-txt');
     const statusDesc = document.getElementById('status-desc');
     const loader = document.getElementById('loader');
     const btnStart = document.getElementById('btn-start');
     const speedVal = document.getElementById('speedVal');
+    const distanceVal = document.getElementById('distanceVal');
     const steerLabel = document.getElementById('steerLabel');
     const btnGas = document.getElementById('btn-gas');
     const btnBrake = document.getElementById('btn-brake');
-    const scoreValue = document.getElementById('score-value');
-    const btnPause = document.getElementById('btn-pause');
-    const pauseMenu = document.getElementById('pause-menu');
-    const btnResume = document.getElementById('btn-resume');
-    const btnQuit = document.getElementById('btn-quit');
-    const pauseSpeed = document.getElementById('pause-speed');
-    const pauseDistance = document.getElementById('pause-distance');
+    const progressBar = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    const loadingProgress = document.getElementById('loading-progress');
 
     const MOBILE_FRAME_SKIP = 2; 
     let frameCount = 0;
 
-    // Movement & Tracking System
-    let carX = 0;
-    let targetCarX = 0;
+    let carX = 0;             
+    let targetCarX = 0;       
     let visualWheelRotation = 0; 
-    let currentSpeed = 100;
-    let targetSpeed = 100;
+    let currentSpeed = 90;    
+    let targetSpeed = 90;
     let roadDistance = 0;
+    let totalDistance = 0;
     let handTrackerModel = null;
     let isGameRunning = false;
     let isGamePaused = false;
-    let totalDistance = 0;
+    let modelsLoading = false;
+    let modelsReady = false;
 
-    // Button Input Trackers
     let isPressingGas = false;
     let isPressingBrake = false;
 
@@ -167,7 +179,6 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // Speed Controls Event Listeners
     btnGas.addEventListener('touchstart', (e) => { e.preventDefault(); if (!isGamePaused) { isPressingGas = true; btnGas.classList.add('active'); } });
     btnGas.addEventListener('touchend', (e) => { e.preventDefault(); isPressingGas = false; btnGas.classList.remove('active'); });
     btnGas.addEventListener('mousedown', () => { if (!isGamePaused) { isPressingGas = true; btnGas.classList.add('active'); } });
@@ -178,39 +189,6 @@
     btnBrake.addEventListener('mousedown', () => { if (!isGamePaused) { isPressingBrake = true; btnBrake.classList.add('active'); } });
     btnBrake.addEventListener('mouseup', () => { isPressingBrake = false; btnBrake.classList.remove('active'); });
 
-    // Pause Button Handler
-    btnPause.addEventListener('click', () => {
-        if (isGameRunning) {
-            isGamePaused = !isGamePaused;
-            if (isGamePaused) {
-                pauseMenu.style.display = 'flex';
-                pauseSpeed.textContent = Math.floor(currentSpeed);
-                pauseDistance.textContent = Math.floor(totalDistance);
-            } else {
-                pauseMenu.style.display = 'none';
-            }
-        }
-    });
-
-    // Resume Button
-    btnResume.addEventListener('click', () => {
-        isGamePaused = false;
-        pauseMenu.style.display = 'none';
-    });
-
-    // Quit Button
-    btnQuit.addEventListener('click', () => {
-        isGameRunning = false;
-        isGamePaused = false;
-        pauseMenu.style.display = 'none';
-        overlay.style.opacity = "1";
-        overlay.style.display = "flex";
-        loader.style.display = "none";
-        statusTxt.innerText = "Game Over!";
-        statusDesc.innerText = `You traveled ${Math.floor(totalDistance)}m. Click START RACING to play again.`;
-        btnStart.style.display = "block";
-    });
-
     async function startMobileCamera() {
         try {
             const constraints = {
@@ -219,27 +197,62 @@
             };
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = stream;
-            return new Promise((resolve) => { video.onloadedmetadata = () => { video.play(); resolve(video); }; });
+            return new Promise((resolve) => { 
+                video.onloadedmetadata = () => { 
+                    video.play(); 
+                    overlayCanvas.width = video.videoWidth;
+                    overlayCanvas.height = video.videoHeight;
+                    resolve(video); 
+                }; 
+            });
         } catch (err) {
             statusTxt.innerText = "Camera Blocked";
-            statusDesc.innerText = "Please unlock camera access settings to play.";
+            statusDesc.innerText = "Please unlock camera access";
             loader.style.display = "none";
             throw err;
         }
     }
 
+    async function loadHandposeModel() {
+        // Check if cached
+        const cached = await getCachedModel('handpose');
+        if (cached) {
+            statusTxt.innerText = "Loading from Cache...";
+            progressText.innerText = "Models restored from cache!";
+            progressBar.style.width = '100%';
+            return cached;
+        }
+        
+        // Load fresh and cache
+        modelsLoading = true;
+        loadingProgress.style.display = 'block';
+        statusTxt.innerText = "Downloading Models...";
+        
+        const model = await handpose.load();
+        modelsReady = true;
+        
+        // Cache it
+        await cacheModel('handpose', model);
+        
+        progressBar.style.width = '100%';
+        progressText.innerText = "Models cached for faster loading next time!";
+        
+        return model;
+    }
+
     async function initMobileAI() {
         try {
+            await initDB();
             await startMobileCamera();
-            statusTxt.innerText = "Optimizing Performance...";
-            statusDesc.innerText = "Configuring local GPU settings on your device.";
             
+            statusTxt.innerText = "Preparing Engine...";
             await tf.ready();
-            handTrackerModel = await handpose.load();
+            
+            handTrackerModel = await loadHandposeModel();
             
             loader.style.display = "none";
-            statusTxt.innerText = "Ready To Play!";
-            statusDesc.innerText = "Place phone on a stand. Step back so your face and hands fit inside the frame.";
+            statusTxt.innerText = "Ready To Race!";
+            statusDesc.innerText = "Watch the neon lines match your hand movement perfectly.";
             btnStart.style.display = "block";
             
             btnStart.addEventListener('click', () => {
@@ -248,10 +261,15 @@
                 isGameRunning = true;
                 isGamePaused = false;
                 totalDistance = 0;
-                currentSpeed = 100;
+                currentSpeed = 90;
                 processWebcamLoop();
+                gameLoop();
             });
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.error(e);
+            statusTxt.innerText = "Error Loading";
+            statusDesc.innerText = "Please refresh the page";
+        }
     }
 
     async function processWebcamLoop() {
@@ -261,38 +279,60 @@
         if (frameCount % MOBILE_FRAME_SKIP === 0 && !isGamePaused) {
             try {
                 const handsDetected = await handTrackerModel.estimateHands(video);
-                
+                oCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
                 if (handsDetected.length >= 1) {
-                    const landmarks = handsDetected[0].landmarks;
+                    const hand = handsDetected[0];
+                    const landmarks = hand.landmarks;
                     
-                    // Core point values to track wrist tilting geometry
+                    // NEON SKELETON LAYER
                     const wrist = landmarks[0];
-                    const middleFingerBase = landmarks[9];
+                    const indexBase = landmarks[5];
+                    const pinkyBase = landmarks[17];
+                    const middleTip = landmarks[12];
                     
-                    const dx = middleFingerBase[0] - wrist[0];
-                    const dy = middleFingerBase[1] - wrist[1];
+                    // Draw neon palm base
+                    oCtx.strokeStyle = '#00ffcc';
+                    oCtx.lineWidth = 2;
+                    oCtx.shadowColor = '#00ffcc';
+                    oCtx.shadowBlur = 5;
                     
-                    // Math angle formula for stable wrist steering tilt calibration
+                    oCtx.beginPath();
+                    oCtx.moveTo(wrist[0], wrist[1]);
+                    oCtx.lineTo(indexBase[0], indexBase[1]);
+                    oCtx.lineTo(pinkyBase[0], pinkyBase[1]);
+                    oCtx.closePath();
+                    oCtx.stroke();
+                    
+                    // Draw core directional bone
+                    oCtx.strokeStyle = '#ff3366';
+                    oCtx.shadowColor = '#ff3366';
+                    oCtx.beginPath();
+                    oCtx.moveTo(wrist[0], wrist[1]);
+                    oCtx.lineTo(middleTip[0], middleTip[1]);
+                    oCtx.stroke();
+                    oCtx.shadowBlur = 0;
+
+                    // Geometric steering angle
+                    const dx = middleTip[0] - wrist[0];
+                    const dy = middleTip[1] - wrist[1];
                     let angle = Math.atan2(dx, -dy);
                     
-                    // Deadzone to prevent jittery center shaking
                     if (Math.abs(angle) < 0.08) angle = 0;
-
-                    visualWheelRotation = angle * 1.5; 
-                    targetCarX = -angle * 320; 
+                    visualWheelRotation = angle * 1.5;
+                    targetCarX = -angle * 320;
 
                     if (targetCarX > 30) {
-                        steerLabel.innerText = "◀ STEERING LEFT";
+                        steerLabel.innerText = "◀ LEFT";
                         steerLabel.style.color = "#ff3366";
                     } else if (targetCarX < -30) {
-                        steerLabel.innerText = "STEERING RIGHT ▶";
+                        steerLabel.innerText = "RIGHT ▶";
                         steerLabel.style.color = "#00ffcc";
                     } else {
-                        steerLabel.innerText = "● STRAIGHT ●";
+                        steerLabel.innerText = "● CENTER ●";
                         steerLabel.style.color = "#ffffff";
                     }
                 } else {
-                    // Smooth wheel return to center when hands are dropped
                     visualWheelRotation += (0 - visualWheelRotation) * 0.1;
                     targetCarX += (0 - targetCarX) * 0.1;
                 }
@@ -306,14 +346,12 @@
         ctx.save();
         ctx.translate(x, y);
 
-        // Ground Neon Shadow Glow
         ctx.fillStyle = 'rgba(0, 255, 204, 0.25)';
         ctx.shadowColor = '#00ffcc';
         ctx.shadowBlur = 15;
         ctx.fillRect(-width/2 - 10, height - 5, width + 20, 15);
         ctx.shadowBlur = 0;
 
-        // Cyber Body
         ctx.fillStyle = '#ffcc00';
         ctx.shadowColor = '#ffcc00';
         ctx.shadowBlur = 20;
@@ -325,12 +363,10 @@
         ctx.fill();
         ctx.shadowBlur = 0;
 
-        // Windows
         ctx.fillStyle = '#00ffff';
         ctx.fillRect(-width/3, -height * 0.15, width/3, height * 0.2);
         ctx.fillRect(0, -height * 0.15, width/3, height * 0.2);
 
-        // Wheels
         ctx.fillStyle = '#333';
         ctx.beginPath();
         ctx.arc(-width/3, height * 0.25, width * 0.12, 0, Math.PI * 2);
@@ -339,7 +375,6 @@
         ctx.arc(width/3, height * 0.25, width * 0.12, 0, Math.PI * 2);
         ctx.fill();
 
-        // Wheel Rims
         ctx.strokeStyle = '#ff3366';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -363,7 +398,6 @@
         if (isGameRunning && !isGamePaused) {
             carX += (targetCarX - carX) * 0.12;
             
-            // Speed control with gas/brake
             if (isPressingGas) {
                 targetSpeed = Math.min(targetSpeed + 5, 250);
             } else if (isPressingBrake) {
@@ -377,7 +411,7 @@
             totalDistance += currentSpeed * 0.04;
             
             speedVal.innerText = Math.floor(currentSpeed);
-            scoreValue.innerText = Math.floor(totalDistance) + ' m';
+            distanceVal.innerText = Math.floor(totalDistance) + ' m';
         }
 
         const segments = 22;
@@ -432,11 +466,12 @@
 
     function gameLoop() {
         renderRacetrack();
-        requestAnimationFrame(gameLoop);
+        if (isGameRunning) {
+            requestAnimationFrame(gameLoop);
+        }
     }
 
     initMobileAI();
-    gameLoop();
 </script>
 
 </body>
